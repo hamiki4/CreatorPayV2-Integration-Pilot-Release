@@ -1,0 +1,79 @@
+name: V2 integration Pilot migration artifact
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v2-integration-pilot-migration
+  cancel-in-progress: false
+
+env:
+  APPROVED_SHA: 94fcc565b35835f71cd818fffc475c5907997a43
+
+jobs:
+  migration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out the mirrored approved source object
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ env.APPROVED_SHA }}
+          path: source
+          persist-credentials: false
+
+      - name: Prove exact clean source
+        working-directory: source
+        run: |
+          test "$(git rev-parse HEAD)" = "$APPROVED_SHA"
+          git diff --exit-code
+          git diff --cached --exit-code
+
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: 10.0.302
+
+      - name: Build reviewed migration bundle and evidence
+        working-directory: source
+        run: |
+          dotnet tool restore
+          dotnet restore CreatorPay.slnx
+          dotnet build CreatorPay.slnx --configuration Release --no-restore
+          dotnet tool run dotnet-ef migrations has-pending-model-changes \
+            --project src/CreatorPay.Infrastructure \
+            --startup-project src/CreatorPay.Api \
+            --configuration Release \
+            --no-build
+          mkdir -p ../release
+          dotnet tool run dotnet-ef migrations bundle \
+            --project src/CreatorPay.Infrastructure \
+            --startup-project src/CreatorPay.Api \
+            --configuration Release \
+            --no-build \
+            --self-contained \
+            --target-runtime linux-x64 \
+            --output ../release/creatorpay-v2-integration-migrate
+          dotnet tool run dotnet-ef migrations script --idempotent \
+            --project src/CreatorPay.Infrastructure \
+            --startup-project src/CreatorPay.Api \
+            --configuration Release \
+            --no-build \
+            --output ../release/creatorpay-v2-integration.idempotent.sql
+          find src/CreatorPay.Infrastructure/Persistence/Migrations -maxdepth 1 \
+            -name '[0-9]*.cs' '!' -name '*.Designer.cs' -printf '%f\n' \
+            | sort > ../release/migrations.txt
+          test "$(wc -l < ../release/migrations.txt)" -eq 41
+          test "$(tail -1 ../release/migrations.txt)" = \
+            '20260917020021_AddV3ExternalIdentityIntegration.cs'
+          cd ../release
+          sha256sum creatorpay-v2-integration-migrate \
+            creatorpay-v2-integration.idempotent.sql migrations.txt > SHA256SUMS
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: v2-integration-pilot-migrations
+          path: release/
+          retention-days: 30
