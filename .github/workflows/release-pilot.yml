@@ -74,7 +74,7 @@ jobs:
             "${args[@]}" \
             source
           if [ "$COMPONENT" = web ]; then
-            docker buildx build --platform linux/amd64 --load --tag "$IMAGE" \
+            docker build --platform linux/amd64 --tag "$IMAGE" \
               --build-arg "BASE_IMAGE=$IMAGE" --file - . <<'EOF'
           ARG BASE_IMAGE
           FROM ${BASE_IMAGE}
