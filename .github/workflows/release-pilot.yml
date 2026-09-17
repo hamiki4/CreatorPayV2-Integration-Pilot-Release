@@ -12,6 +12,7 @@ concurrency:
 
 env:
   APPROVED_SHA: c17f3692c6e1035ecb9c90020ea29195a92c09fe
+  RELEASE_TAG: c17f3692c6e1035ecb9c90020ea29195a92c09fe-single-origin-v1
 
 jobs:
   images:
@@ -25,8 +26,6 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - component: api
-            dockerfile: src/CreatorPay.Api/Dockerfile
           - component: web
             dockerfile: src/CreatorPay.Web/Dockerfile
     steps:
@@ -57,10 +56,14 @@ jobs:
           COMPONENT: ${{ matrix.component }}
           DOCKERFILE: ${{ matrix.dockerfile }}
         run: |
-          IMAGE="ghcr.io/hamiki4/creatorpay-v2-integration-${COMPONENT}:${APPROVED_SHA}"
+          IMAGE="ghcr.io/hamiki4/creatorpay-v2-integration-${COMPONENT}:${RELEASE_TAG}"
+          if docker buildx imagetools inspect "$IMAGE" >/dev/null 2>&1; then
+            echo "Refusing to overwrite an existing immutable release tag." >&2
+            exit 1
+          fi
           args=()
           if [ "$COMPONENT" = web ]; then
-            args+=(--build-arg VITE_API_URL=https://api-pilot.weymela.com)
+            args+=(--build-arg VITE_API_URL=/)
           fi
           docker buildx build \
             --platform linux/amd64 \
@@ -88,7 +91,7 @@ jobs:
         uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
         with:
           version: v0.74.0
-          image-ref: ghcr.io/hamiki4/creatorpay-v2-integration-${{ matrix.component }}:${{ env.APPROVED_SHA }}
+          image-ref: ghcr.io/hamiki4/creatorpay-v2-integration-${{ matrix.component }}:${{ env.RELEASE_TAG }}
           scanners: vuln,secret
           severity: HIGH,CRITICAL
           ignore-unfixed: false
@@ -98,7 +101,7 @@ jobs:
 
       - name: Publish and record runnable registry digest
         run: |
-          IMAGE="ghcr.io/hamiki4/creatorpay-v2-integration-${COMPONENT}:${APPROVED_SHA}"
+          IMAGE="ghcr.io/hamiki4/creatorpay-v2-integration-${COMPONENT}:${RELEASE_TAG}"
           docker push "$IMAGE"
           mkdir -p release
           docker image inspect "$IMAGE" --format '{{json .}}' | python3 -c '
@@ -116,16 +119,17 @@ jobs:
               "imageId": data["Id"],
               "platform": "linux/amd64",
               "scan": "passed",
+              "apiOrigin": "same-origin",
               "productionDeployment": False,
           }
           (pathlib.Path("release") / (component + "-image.json")).write_text(json.dumps(record, indent=2) + "\n")'
         env:
           COMPONENT: ${{ matrix.component }}
-          IMAGE: ghcr.io/hamiki4/creatorpay-v2-integration-${{ matrix.component }}:${{ env.APPROVED_SHA }}
+          IMAGE: ghcr.io/hamiki4/creatorpay-v2-integration-${{ matrix.component }}:${{ env.RELEASE_TAG }}
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: v2-integration-pilot-${{ matrix.component }}
+          name: v2-integration-pilot-${{ matrix.component }}-single-origin-v1
           path: |
             release/${{ matrix.component }}-image.json
             ${{ matrix.component }}-security.json
