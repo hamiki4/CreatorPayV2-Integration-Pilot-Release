@@ -36,6 +36,7 @@ jobs:
         with:
           ref: ${{ env.APPROVED_SHA }}
           path: source
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Prove exact clean source
