@@ -11,8 +11,10 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  APPROVED_SHA: c17f3692c6e1035ecb9c90020ea29195a92c09fe
-  RELEASE_TAG: c17f3692c6e1035ecb9c90020ea29195a92c09fe-single-origin-v1
+  APPROVED_SHA: 6a47993e1314e7ecc9667879ec48297153d586ad
+  PRODUCT_SHA: 6022ce0df595570198d9c148c8178a76eab32211
+  HARDENING_SHA: 6a47993e1314e7ecc9667879ec48297153d586ad
+  RELEASE_TAG: 6a47993e1314e7ecc9667879ec48297153d586ad-promotions-ugc-v1
 
 jobs:
   images:
@@ -40,6 +42,8 @@ jobs:
         working-directory: source
         run: |
           test "$(git rev-parse HEAD)" = "$APPROVED_SHA"
+          test "$APPROVED_SHA" = "$HARDENING_SHA"
+          git merge-base --is-ancestor "$PRODUCT_SHA" "$APPROVED_SHA"
           git diff --exit-code
           git diff --cached --exit-code
 
@@ -76,16 +80,6 @@ jobs:
             --tag "$IMAGE" \
             "${args[@]}" \
             source
-          if [ "$COMPONENT" = web ]; then
-            docker build --platform linux/amd64 --tag "$IMAGE" \
-              --build-arg "BASE_IMAGE=$IMAGE" --file - . <<'EOF'
-          ARG BASE_IMAGE
-          FROM ${BASE_IMAGE}
-          USER root
-          RUN apk upgrade --no-cache
-          USER 101
-          EOF
-          fi
 
       - name: Scan release image before publishing
         uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
@@ -114,6 +108,8 @@ jobs:
           record = {
               "component": component,
               "commit": os.environ["APPROVED_SHA"],
+              "productCommit": os.environ["PRODUCT_SHA"],
+              "runtimeHardeningCommit": os.environ["HARDENING_SHA"],
               "image": image,
               "digest": digest,
               "imageId": data["Id"],
@@ -129,7 +125,7 @@ jobs:
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: v2-integration-pilot-${{ matrix.component }}-single-origin-v1
+          name: v2-integration-pilot-${{ matrix.component }}-promotions-ugc-v1
           path: |
             release/${{ matrix.component }}-image.json
             ${{ matrix.component }}-security.json
