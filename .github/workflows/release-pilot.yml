@@ -14,7 +14,7 @@ env:
   APPROVED_SHA: 51878a26ef46595468e2309a9d1e4eb8a7c8a74f
   PRODUCT_SHA: 6022ce0df595570198d9c148c8178a76eab32211
   HARDENING_SHA: 51878a26ef46595468e2309a9d1e4eb8a7c8a74f
-  RELEASE_TAG: 51878a26ef46595468e2309a9d1e4eb8a7c8a74f-business-ratings-checkpoint-v1
+  RELEASE_TAG: 51878a26ef46595468e2309a9d1e4eb8a7c8a74f-business-ratings-checkpoint-v2
 
 jobs:
   images:
@@ -28,6 +28,8 @@ jobs:
       fail-fast: true
       matrix:
         include:
+          - component: api
+            dockerfile: src/CreatorPay.Api/Dockerfile
           - component: web
             dockerfile: src/CreatorPay.Web/Dockerfile
     steps:
