@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  APPROVED_SHA: 94fcc565b35835f71cd818fffc475c5907997a43
+  APPROVED_SHA: 51878a26ef46595468e2309a9d1e4eb8a7c8a74f
 
 jobs:
   migration:
