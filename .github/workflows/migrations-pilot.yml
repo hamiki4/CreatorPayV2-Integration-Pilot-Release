@@ -65,9 +65,9 @@ jobs:
           find src/CreatorPay.Infrastructure/Persistence/Migrations -maxdepth 1 \
             -name '[0-9]*.cs' '!' -name '*.Designer.cs' -printf '%f\n' \
             | sort > ../release/migrations.txt
-          test "$(wc -l < ../release/migrations.txt)" -eq 41
+          test "$(wc -l < ../release/migrations.txt)" -eq 42
           test "$(tail -1 ../release/migrations.txt)" = \
-            '20260917020021_AddV3ExternalIdentityIntegration.cs'
+            '20260919005035_AddCreatorRatings.cs'
           cd ../release
           sha256sum creatorpay-v2-integration-migrate \
             creatorpay-v2-integration.idempotent.sql migrations.txt > SHA256SUMS
